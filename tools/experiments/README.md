@@ -49,6 +49,10 @@ variant, with each variant's statistics grouped by repository when repository
 attribution is available. Experiments that record `duration_ms` receive
 percentiles; lazy queryset experiments may only provide dispatch counts.
 
+SQL is grouped by raw statement (`db.sql`), not the tokenized view, which merges
+statements that differ only in the `repo=` comment. "Digest" below means one distinct
+raw statement.
+
 Performance Insights reports aggregate `db.load.avg` for SQL digests, not
 per-request latency. The script prints both per-digest rows and a rollup with
 the distinct SQL digest count and aggregate load for each experiment,

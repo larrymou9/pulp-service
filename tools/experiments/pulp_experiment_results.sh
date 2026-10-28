@@ -179,6 +179,8 @@ print("CloudWatch statistics:", json.dumps(payload.get("statistics", {})))
 # Performance Insights returns only the top SQL digests for a requested
 # window. Query hourly windows so short-lived annotated SQL is less likely to
 # be hidden by the full-range top-25 list, then aggregate duplicate SQL IDs.
+# Group by raw SQL (db.sql): the tokenized view merges statements that differ only
+# in the repo comment, so repositories would not be separated.
 IFS=',' read -r -a db_instances <<< "$PULP_PI_DB_INSTANCES"
 for db_instance in "${db_instances[@]}"; do
     db_instance=${db_instance//[[:space:]]/}
@@ -217,7 +219,7 @@ for db_instance in "${db_instances[@]}"; do
             --end-time "$window_end" \
             --period-in-seconds 60 \
             --metric db.load.avg \
-            --group-by '{"Group":"db.sql_tokenized","Dimensions":["db.sql_tokenized.id","db.sql_tokenized.statement"],"Limit":25}' \
+            --group-by '{"Group":"db.sql","Dimensions":["db.sql.id","db.sql.statement"],"Limit":25}' \
             --output json >"$pi_file" 2>"$pi_file.err"; then
             printf 'Performance Insights query failed for %s, window %s-%s:\n' \
                 "$db_instance" "$window_start" "$window_end" >&2
@@ -247,12 +249,12 @@ for filename in glob.glob(sys.argv[1] + "/window-*.json"):
     payload = json.load(open(filename))
     for key in payload.get("Keys", []):
         dimensions = key.get("Dimensions", {})
-        statement = dimensions.get("db.sql_tokenized.statement", "")
+        statement = dimensions.get("db.sql.statement", "")
         for marker in marker_re.finditer(statement):
             experiment = marker.group("experiment")
             variant = marker.group("variant")
             repository = marker.group("repository") or "unattributed"
-            sql_id = dimensions.get("db.sql_tokenized.id")
+            sql_id = dimensions.get("db.sql.id")
             item = aggregate[(experiment, variant, repository, sql_id)]
             item["total"] += float(key.get("Total") or 0)
             item["windows"] += 1
